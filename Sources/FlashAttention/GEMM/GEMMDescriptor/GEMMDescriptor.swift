@@ -49,6 +49,8 @@ public struct GEMMDescriptor {
 struct GEMMKey: Equatable, Hashable {
   var batchDimension: Int
   var loadPreviousC: UInt8
+  // NEW: must be part of the key
+  var leadingDimensions: SIMD3<UInt32>
   var matrixDimensions: SIMD3<UInt32>
   var memoryPrecisions: SIMD3<UInt16>
   var transposeState: SIMD2<UInt8>
@@ -56,6 +58,12 @@ struct GEMMKey: Equatable, Hashable {
   init(copying source: GEMMDescriptor) {
     batchDimension = source.batchDimension
     loadPreviousC = GEMMKernelKey.createBoolean(source.loadPreviousC)
+    // NEW
+    leadingDimensions = Self.createLeadingDimensions(
+        source.leadingDimensions,
+        matrixDimensions: source.matrixDimensions,
+        transposeState: source.transposeState
+    )
     matrixDimensions = Self.createMatrixDimensions(source.matrixDimensions)
     memoryPrecisions = GEMMKernelKey.createPrecisions(source.memoryPrecisions)
     transposeState = GEMMKernelKey.createTransposeState(source.transposeState)
@@ -71,6 +79,56 @@ struct GEMMKey: Equatable, Hashable {
       return SIMD3(repeating: .max)
     }
   }
+    
+    // NEW: compute the actual leading dims used by specialization
+    @_transparent
+    static func createLeadingDimensions(
+        _ specified: (A: UInt32, B: UInt32, C: UInt32)?,
+        matrixDimensions: (M: UInt32, N: UInt32, K: UInt32)?,
+        transposeState: (A: Bool, B: Bool)?
+    ) -> SIMD3<UInt32> {
+
+        // If we can't compute defaults, fall back to raw optional encoding.
+        guard let matrixDimensions, let transposeState else {
+            if let specified {
+                return SIMD3(specified.A, specified.B, specified.C)
+            } else {
+                return SIMD3(repeating: .max)
+            }
+        }
+
+        @_transparent
+        func choose(
+            _ specified: UInt32?,
+            _ isTransposed: Bool,
+            _ untransposedRows: UInt32,
+            _ untransposedColumns: UInt32
+        ) -> UInt32 {
+            let expected = isTransposed ? untransposedRows : untransposedColumns
+            return specified ?? expected
+        }
+
+        let a = choose(
+            specified?.A,
+            transposeState.A,
+            matrixDimensions.M,
+            matrixDimensions.K
+        )
+        let b = choose(
+            specified?.B,
+            transposeState.B,
+            matrixDimensions.K,
+            matrixDimensions.N
+        )
+        let c = choose(
+            specified?.C,
+            false,
+            matrixDimensions.M,
+            matrixDimensions.N
+        )
+
+        return SIMD3(a, b, c)
+    }
 }
 
 extension GEMMDescriptor: Hashable, Equatable {
@@ -170,12 +228,13 @@ extension GEMMKernelDescriptor {
     
     // Find the core count.
 #if os(macOS)
-    // Typical latency to query IORegistry, provided the function has been
-    // called numerous times prior:
-    // - macOS 14
-    //   - Swift debug mode,   Metal API validation on:  ≥9 μs
-    //   - Swift release mode, Metal API validation off: ≥9 μs
-    let coreCount = findCoreCount()
+let coreCount: Int
+if mtlDevice.supportsFamily(.apple9) {
+  // Not used; setBlockDimensions() returns early on apple9 anyway.
+  coreCount = 0
+} else {
+  coreCount = findCoreCount()
+}
 #elseif os(iOS)
     var coreCount: Int
     if deviceName.starts(with: "A") {

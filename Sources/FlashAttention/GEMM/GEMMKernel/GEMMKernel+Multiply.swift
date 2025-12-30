@@ -149,7 +149,7 @@ for (uint k = \(asyncIterationsStart); k < K; k += K_group) {
     threadgroup_block + \(blockBytes("A")));
   
   // Launch an async copy from device to threadgroup memory.
-  if (sidx == 0) {
+  if (sidx == 0 && lane_id == 0) {
     uint2 A_offset(k, M_offset);
     uint2 B_offset(N_offset, k);
     auto A_src = simdgroup_matrix_storage<\(memoryName("A"))>::apply_offset(

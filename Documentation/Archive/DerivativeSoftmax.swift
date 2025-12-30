@@ -614,9 +614,21 @@ if ((M >= M_group) && (N >= N_group)) {
     matrixDimensions: (M: UInt32, N: UInt32, K: UInt32)
   ) -> MTLComputePipelineState {
     let device = MTLContext.global.device
-    let library = try! device.makeLibrary(source: source, options: nil)
-    
-    // Set the function constants.
+        let library: MTLLibrary
+        do {
+            library = try device.makeLibrary(source: source, options: nil)
+        } catch {
+            // Print the Metal compiler error and the shader source location.
+            // If the source is huge, dump to a file instead.
+            print("Metal compile error:\n\(error)\n")
+
+            // Optional: dump the generated MSL for inspection.
+            // try? source.write(to: URL(fileURLWithPath: "/tmp/mfa_failed.metal"),
+            //                  atomically: true, encoding: .utf8)
+
+            fatalError("Metal compile failed")
+        }
+        // Set the function constants.
     let constants = MTLFunctionConstantValues()
     var M = matrixDimensions.M
     var N = matrixDimensions.N

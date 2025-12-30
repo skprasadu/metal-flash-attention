@@ -128,7 +128,7 @@ extension AttentionKernel {
       return """
       
       threadgroup_barrier(mem_flags::mem_threadgroup);
-      if (sidx == 0) {
+      if (sidx == 0 && lane_id == 0) {
         uint D_offset = \(truncatedHeadDimension);
         uint R_offset = \(parallelizationGroupOffset);
         uint2 offset_src(D_offset, R_offset);
@@ -357,7 +357,7 @@ extension AttentionKernel {
       """
       
       threadgroup_barrier(mem_flags::mem_threadgroup);
-      if (sidx == 0) {
+      if (sidx == 0 && lane_id == 0) {
         auto \(operand)_src = \(operand) + \(traversalOffset);
         auto \(operand)_dst =
         (threadgroup \(memoryName(operand))*)(threadgroup_block);

@@ -50,7 +50,20 @@ extension GEMMKernel {
       } else {
         let kernel = GEMMKernel(descriptor: kernelDescriptor)
         let source = kernel.createSource()
-        let library = try! device.makeLibrary(source: source, options: nil)
+        let library: MTLLibrary
+          do {
+            library = try device.makeLibrary(source: source, options: nil)
+          } catch {
+            // Print the Metal compiler error and the shader source location.
+            // If the source is huge, dump to a file instead.
+            print("Metal compile error:\n\(error)\n")
+
+            // Optional: dump the generated MSL for inspection.
+            // try? source.write(to: URL(fileURLWithPath: "/tmp/mfa_failed.metal"),
+            //                  atomically: true, encoding: .utf8)
+
+            fatalError("Metal compile failed")
+          }
         
         let output = (kernel, library)
         GEMMKernel.libraryCache[kernelDescriptor] = output

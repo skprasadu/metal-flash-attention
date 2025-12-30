@@ -92,7 +92,7 @@ if (\(directAccessCondition)) {
     C_block, \(leadingBlockDimensions.C), offset_in_group);
   
   // Launch the async copy from threadgroup to device memory.
-  if (sidx == 0) {
+  if (sidx == 0 && lane_id == 0) {
     uint2 C_offset(N_offset, M_offset);
     ushort2 C_tile(min(uint(N_group), N - C_offset.x),
                    min(uint(M_group), M - C_offset.y));
@@ -174,7 +174,7 @@ if (\(directAccessCondition)) {
   threadgroup_barrier(mem_flags::mem_threadgroup);
   
   // Launch the async copy from threadgroup to device memory.
-  if (sidx == 0) {
+  if (sidx == 0 && lane_id == 0) {
     uint2 C_offset(gid.x * N_group, gid.y * M_group);
     ushort2 C_tile(min(uint(N_group), N - C_offset.x),
                    min(uint(M_group), M - C_offset.y));

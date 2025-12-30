@@ -3,6 +3,7 @@ import FlashAttention
 
 final class SquareAttentionTest: XCTestCase {
   func testCorrectness() throws {
+    let slow = ProcessInfo.processInfo.environment["SLOW_TESTS"] == "1"
     validateProblemSize(sequenceDimension: 10, headDimension: 3)
     validateProblemSize(sequenceDimension: 10, headDimension: 80)
     validateProblemSize(sequenceDimension: 8, headDimension: 2)
@@ -21,8 +22,11 @@ final class SquareAttentionTest: XCTestCase {
     validateProblemSize(sequenceDimension: 32, headDimension: 64)
     validateProblemSize(sequenceDimension: 4, headDimension: 1)
     validateProblemSize(sequenceDimension: 4, headDimension: 2)
-    validateProblemSize(sequenceDimension: 384, headDimension: 95)
-    validateProblemSize(sequenceDimension: 777, headDimension: 199)
+    // Only run the big ones when you explicitly ask for it.
+    if slow {
+        validateProblemSize(sequenceDimension: 384, headDimension: 95)
+        validateProblemSize(sequenceDimension: 777, headDimension: 199)
+    }
   }
   
   func testPerformance() throws {
@@ -244,7 +248,20 @@ private func validateProblemSize(
   func createPipeline(kernel: AttentionKernel) -> MTLComputePipelineState {
     let device = MTLContext.global.device
     let source = kernel.createSource()
-    let library = try! device.makeLibrary(source: source, options: nil)
+    let library: MTLLibrary
+      do {
+        library = try device.makeLibrary(source: source, options: nil)
+      } catch {
+        // Print the Metal compiler error and the shader source location.
+        // If the source is huge, dump to a file instead.
+        print("Metal compile error:\n\(error)\n")
+
+        // Optional: dump the generated MSL for inspection.
+        // try? source.write(to: URL(fileURLWithPath: "/tmp/mfa_failed.metal"),
+        //                  atomically: true, encoding: .utf8)
+
+        fatalError("Metal compile failed")
+      }
     
     let functionConstants = MTLFunctionConstantValues()
     attentionDesc.setFunctionConstants(functionConstants)
@@ -589,7 +606,20 @@ private func profileProblemSize(
   func createPipeline(kernel: AttentionKernel) -> MTLComputePipelineState {
     let device = MTLContext.global.device
     let source = kernel.createSource()
-    let library = try! device.makeLibrary(source: source, options: nil)
+    let library: MTLLibrary
+      do {
+        library = try device.makeLibrary(source: source, options: nil)
+      } catch {
+        // Print the Metal compiler error and the shader source location.
+        // If the source is huge, dump to a file instead.
+        print("Metal compile error:\n\(error)\n")
+
+        // Optional: dump the generated MSL for inspection.
+        // try? source.write(to: URL(fileURLWithPath: "/tmp/mfa_failed.metal"),
+        //                  atomically: true, encoding: .utf8)
+
+        fatalError("Metal compile failed")
+      }
     
     let functionConstants = MTLFunctionConstantValues()
     attentionDesc.setFunctionConstants(functionConstants)

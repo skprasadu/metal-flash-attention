@@ -117,7 +117,7 @@ extension AttentionKernel {
       """
       
       threadgroup_barrier(mem_flags::mem_threadgroup);
-      if (sidx == 0) {
+      if (sidx == 0 && lane_id == 0) {
         uint2 \(C)_offset(d_outer, \(parallelizationGroupOffset));
         auto src = simdgroup_matrix_storage<\(memoryName(C))>
         ::apply_offset(
@@ -147,7 +147,7 @@ extension AttentionKernel {
       """
       
       threadgroup_barrier(mem_flags::mem_threadgroup);
-      if (sidx == 0) {
+      if (sidx == 0 && lane_id == 0) {
         uint2 \(C)_offset(d_outer, \(parallelizationGroupOffset));
         auto src = (threadgroup \(memoryName(C))*)(threadgroup_block);
         auto dst = simdgroup_matrix_storage<\(memoryName(C))>
@@ -319,7 +319,7 @@ extension AttentionKernel {
         return """
         
         threadgroup_barrier(mem_flags::mem_threadgroup);
-        if (sidx == 0) {
+        if (sidx == 0 && lane_id == 0) {
           uint2 \(B)_offset(d_outer, \(traversalOffset));
           auto src = simdgroup_matrix_storage<\(memoryName(B))>
           ::apply_offset(
